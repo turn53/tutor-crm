@@ -1,0 +1,70 @@
+services:
+  crm:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      CRM_BIND: 0.0.0.0
+      CRM_PUBLIC_ORIGIN: https://${CRM_DOMAIN:?Set CRM_DOMAIN}
+      CRM_GATEWAY_SECRET: ${CRM_GATEWAY_SECRET:?Set a random gateway secret}
+      CRM_DB: /data/crm.sqlite3
+      CRM_ZOOM_CONFIG: /data/zoom.local.json
+      CRM_GOOGLE_CONFIG: /data/google.local.json
+      CRM_VIDEO_DIR: /data/videos
+      CRM_BACKUP_DIR: /data/backups
+      CRM_LOCAL_MODEL_URL: http://report-model:8080
+      CRM_TEACHER_NAME: Вячеслав
+    volumes:
+      - ./server-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  report-model:
+    image: ghcr.io/ggml-org/llama.cpp@sha256:82b5129742c04e12c4b710ae1908fd951f6b227339d45f0aa71f1165df353f70
+    restart: unless-stopped
+    command: ["-m", "/models/qwen35-4b-q4.gguf", "--host", "0.0.0.0", "--port", "8080", "-c", "16384", "-t", "2", "-tb", "2", "-b", "512", "-ub", "128", "-np", "1", "-ctk", "q4_0", "-ctv", "q4_0", "-fa", "on", "--no-webui", "--jinja", "--cache-ram", "0", "--ctx-checkpoints", "0", "--reasoning-budget", "1024"]
+    volumes:
+      - ./models:/models:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 3450m
+    memswap_limit: 3450m
+    cpus: 2
+    cpu_shares: 128
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      CRM_DOMAIN: ${CRM_DOMAIN:?Set CRM_DOMAIN}
+      CRM_LOGIN: ${CRM_LOGIN:?Set CRM_LOGIN}
+      CRM_PASSWORD_HASH: ${CRM_PASSWORD_HASH:?Set a bcrypt hash}
+      CRM_GATEWAY_SECRET: ${CRM_GATEWAY_SECRET:?Set a random gateway secret}
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      crm: {condition: service_healthy}
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+volumes:
+  caddy_data:
+  caddy_config:
