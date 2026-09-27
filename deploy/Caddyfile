@@ -1,4 +1,15 @@
 {
+    log default {
+        format filter {
+            wrap json
+            fields {
+                request>headers delete
+                resp_headers delete
+                user_id delete
+                request>uri regexp "[?].*" ""
+            }
+        }
+    }
     servers {
         protocols h1 h2
         timeouts {
