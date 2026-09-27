@@ -3,7 +3,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 . /etc/os-release
 test "$ID" = ubuntu
-test "$VERSION_CODENAME" = noble
+case "$VERSION_CODENAME" in jammy|noble) ;; *) echo 'Ubuntu 22.04 or 24.04 required' >&2; exit 1 ;; esac
 apt-get update
 apt-get install -y ca-certificates curl ufw
 install -m 0755 -d /etc/apt/keyrings
@@ -12,7 +12,7 @@ chmod a+r /etc/apt/keyrings/docker.asc
 cat > /etc/apt/sources.list.d/docker.sources <<EOF
 Types: deb
 URIs: https://download.docker.com/linux/ubuntu
-Suites: noble
+Suites: $VERSION_CODENAME
 Components: stable
 Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
